@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SourceTrace - AI-powered UGC provenance triage for newsrooms">
+    <title>SourceTrace - AI-Powered UGC Provenance Triage</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Header -->
+    <header role="banner">
+        <div class="container">
+            <h1><i class="fas fa-shield-alt"></i> SourceTrace</h1>
+            <p class="tagline">AI-Powered UGC Provenance Triage</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" role="main">
+        <div class="container">
+
+            <!-- Upload Section -->
+            <section id="upload-section" class="card">
+                <h2>Analyze Content</h2>
+
+                <!-- Drag & Drop Zone -->
+                <div id="drop-zone" class="drop-zone">
+                    <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                    <p class="drop-text">Drag & drop your image here</p>
+                    <p class="drop-subtext">or</p>
+                    <button type="button" id="file-button" class="btn btn-secondary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </button>
+                    <input type="file" id="file-input" accept="image/jpeg,image/jpg,image/png,image/gif" hidden>
+                    <p class="file-info">Supported: JPG, PNG, GIF (max 10MB)</p>
+                </div>
+
+                <!-- OR Divider -->
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+
+                <!-- URL Input -->
+                <div class="url-input-group">
+                    <label for="url-input">Enter Image URL:</label>
+                    <div class="input-with-button">
+                        <input
+                            type="url"
+                            id="url-input"
+                            placeholder="https://example.com/image.jpg"
+                            aria-label="Image URL"
+                        >
+                        <button type="button" id="analyze-button" class="btn btn-primary" disabled>
+                            <i class="fas fa-search"></i> Analyze
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section id="progress-section" class="card hidden">
+                <div class="progress-content">
+                    <div class="spinner"></div>
+                    <h3>Analyzing Content...</h3>
+                    <p id="progress-message">Preparing analysis...</p>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results-section" class="card hidden">
+                <h2>Analysis Results</h2>
+
+                <!-- Confidence Score -->
+                <div class="confidence-container">
+                    <div class="confidence-gauge">
+                        <svg viewBox="0 0 200 120" class="gauge-svg">
+                            <path class="gauge-bg" d="M20,100 A80,80 0 0,1 180,100"></path>
+                            <path id="gauge-fill" class="gauge-fill" d="M20,100 A80,80 0 0,1 180,100"></path>
+                        </svg>
+                        <div class="gauge-value">
+                            <span id="confidence-score">0</span>
+                            <span class="gauge-percent">%</span>
+                        </div>
+                        <p class="gauge-label">Confidence Score</p>
+                    </div>
+                    <div class="recommendation-badge-container">
+                        <div id="recommendation-badge" class="badge">
+                            <i class="fas fa-info-circle"></i>
+                            <span id="recommendation-text">Recommendation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signal Cards -->
+                <div class="signals-grid">
+                    <!-- EXIF Card -->
+                    <div class="signal-card" id="exif-card">
+                        <div class="signal-header">
+                            <i class="fas fa-camera"></i>
+                            <h3>EXIF Metadata</h3>
+                            <span class="signal-status" id="exif-status"></span>
+                        </div>
+                        <div class="signal-content" id="exif-content">
+                            <p class="loading-text">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- C2PA Card -->
+                    <div class="signal-card" id="c2pa-card">
+                        <div class="signal-header">
+                            <i class="fas fa-certificate"></i>
+                            <h3>C2PA Credentials</h3>
+                            <span class="signal-status" id="c2pa-status"></span>
+                        </div>
+                        <div class="signal-content" id="c2pa-content">
+                            <p class="loading-text">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Reverse Search Card -->
+                    <div class="signal-card" id="reverse-card">
+                        <div class="signal-header">
+                            <i class="fas fa-search"></i>
+                            <h3>Reverse Search</h3>
+                            <span class="signal-status" id="reverse-status"></span>
+                        </div>
+                        <div class="signal-content" id="reverse-content">
+                            <p class="loading-text">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Summary -->
+                <div class="summary-section">
+                    <h3><i class="fas fa-file-alt"></i> Analysis Summary</h3>
+                    <p id="summary-text"></p>
+                </div>
+
+                <!-- Red Flags -->
+                <div id="red-flags-section" class="red-flags-section hidden">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Red Flags</h3>
+                    <ul id="red-flags-list"></ul>
+                </div>
+
+                <!-- Probable Owner -->
+                <div id="owner-section" class="owner-section hidden">
+                    <h3><i class="fas fa-user"></i> Probable Owner</h3>
+                    <div class="owner-info">
+                        <p><strong>Username:</strong> <span id="owner-username"></span></p>
+                        <p><strong>Platform:</strong> <span id="owner-platform"></span></p>
+                        <p><strong>Confidence:</strong> <span id="owner-confidence"></span>%</p>
+                        <p><strong>Contact:</strong> <span id="owner-contact"></span></p>
+                    </div>
+                    <button type="button" id="generate-outreach-button" class="btn btn-primary">
+                        <i class="fas fa-envelope"></i> Generate Outreach Message
+                    </button>
+                </div>
+
+                <!-- Reset Button -->
+                <div class="action-buttons">
+                    <button type="button" id="reset-button" class="btn btn-secondary">
+                        <i class="fas fa-redo"></i> Analyze Another Image
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section id="error-section" class="card error-card hidden">
+                <div class="error-content">
+                    <i class="fas fa-exclamation-circle fa-3x"></i>
+                    <h3>Analysis Failed</h3>
+                    <p id="error-message"></p>
+                    <button type="button" id="error-retry-button" class="btn btn-primary">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Outreach Modal -->
+    <div id="outreach-modal" class="modal hidden" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title"><i class="fas fa-envelope"></i> Generate Outreach Message</h2>
+                <button type="button" class="modal-close" id="modal-close" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- License Parameters Form -->
+                <form id="outreach-form">
+                    <div class="form-group">
+                        <label for="use-case">Use Case:</label>
+                        <select id="use-case" required>
+                            <option value="breaking_news">Breaking News</option>
+                            <option value="feature_story">Feature Story</option>
+                            <option value="social_media">Social Media</option>
+                            <option value="investigation">Investigation</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scope">License Scope:</label>
+                        <select id="scope" required>
+                            <option value="single_use">Single Use</option>
+                            <option value="multiple_use">Multiple Use</option>
+                            <option value="exclusive">Exclusive</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="territory">Territory:</label>
+                        <select id="territory" required>
+                            <option value="worldwide">Worldwide</option>
+                            <option value="regional">Regional</option>
+                            <option value="local">Local</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="compensation">Compensation:</label>
+                        <select id="compensation" required>
+                            <option value="standard_rate">Standard Rate</option>
+                            <option value="premium_rate">Premium Rate</option>
+                            <option value="negotiable">Negotiable</option>
+                            <option value="attribution_only">Attribution Only</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-magic"></i> Generate Message
+                    </button>
+                </form>
+
+                <!-- Generated Outreach -->
+                <div id="outreach-result" class="outreach-result hidden">
+                    <h3>Generated Outreach Message</h3>
+                    <div class="message-box">
+                        <p id="outreach-message"></p>
+                    </div>
+
+                    <h4>License Summary</h4>
+                    <p id="license-summary"></p>
+
+                    <h4>Next Steps</h4>
+                    <ul id="next-steps-list"></ul>
+
+                    <button type="button" id="copy-button" class="btn btn-success btn-block">
+                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    </button>
+                    <div id="copy-feedback" class="copy-feedback hidden">
+                        <i class="fas fa-check"></i> Copied to clipboard!
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="outreach-loading" class="outreach-loading hidden">
+                    <div class="spinner"></div>
+                    <p>Generating outreach message...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer role="contentinfo">
+        <div class="container">
+            <p>&copy; 2024 SourceTrace - MVP Prototype</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
