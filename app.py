@@ -177,6 +177,7 @@ def analyze():
         # Pipeline Step 1: Extract EXIF
         app.logger.info("Step 1/4: Extracting EXIF metadata...")
         exif_data = extract_exif(temp_path)
+        app.logger.info(f"EXIF data extracted: {exif_data}")
 
         # Pipeline Step 2: Check C2PA
         app.logger.info("Step 2/4: Checking C2PA credentials...")
@@ -208,6 +209,9 @@ def analyze():
         processing_time_ms = int((time.time() - start_time) * 1000)
 
         app.logger.info(f"Analysis completed in {processing_time_ms}ms, confidence: {analysis.get('confidence', 'N/A')}")
+
+        # Log signals before sending
+        app.logger.info(f"Signals being returned - EXIF: {signals['exif']}")
 
         # Return complete result
         return jsonify({
@@ -284,10 +288,14 @@ def generate_outreach():
                 'error': f'Invalid license_params: {error}'
             }), 400
 
+        # Extract user info (optional fields with defaults)
+        your_name = data.get('your_name', 'Metro News Desk Reporter')
+        your_organization = data.get('your_organization', 'Metro News Desk')
+
         app.logger.info(f"Outreach generation request: {owner_info['username']} on {owner_info['platform']}")
 
         # Generate outreach message
-        outreach = generate_outreach_message(owner_info, license_params)
+        outreach = generate_outreach_message(owner_info, license_params, your_name, your_organization)
 
         # Calculate processing time
         processing_time_ms = int((time.time() - start_time) * 1000)

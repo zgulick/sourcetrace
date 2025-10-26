@@ -181,7 +181,12 @@ Red flags to check for:
 Recommendation:
 - proceed_to_rights: High confidence, ready for licensing workflow
 - manual_review: Medium confidence, human verification recommended
-- high_risk: Low confidence, likely fake or manipulated"""
+- high_risk: Low confidence, likely fake or manipulated
+
+IMPORTANT: If C2PA credentials are present with identity information, extract the creator/owner details:
+- Check c2pa.identity for name, social handles, email, website
+- Use the issuer from signature_info as a signal of authenticity
+- Set high confidence (85-95) when valid C2PA with identity is present"""
 
         # Build user message with signals
         user_message = f"""Analyze these provenance signals:
@@ -272,7 +277,7 @@ Provide your analysis as JSON."""
         }
 
 
-def generate_outreach(owner_info, license_params):
+def generate_outreach(owner_info, license_params, your_name='Metro News Desk Reporter', your_organization='Metro News Desk'):
     """
     Generate rights clearance outreach message using OpenAI
 
@@ -288,6 +293,9 @@ def generate_outreach(owner_info, license_params):
                 "territory": "worldwide",
                 "compensation": "standard_rate"
             }
+
+        your_name: str - Name of person sending the message
+        your_organization: str - Organization name
 
     Returns:
         dict: Outreach message and license summary
@@ -315,7 +323,7 @@ def generate_outreach(owner_info, license_params):
         compensation = license_params.get('compensation', 'negotiable')
 
         return {
-            'outreach_message': f"Hi {username}, We'd like to use your content for {use_case}. Please contact us to discuss licensing terms. Compensation: {compensation}",
+            'outreach_message': f"Hi {username}, I'm {your_name} from {your_organization}. We'd like to use your content for {use_case}. Please contact us to discuss licensing terms. Compensation: {compensation}",
             'license_summary': f"Standard licensing terms for {use_case}. Territory: {license_params.get('territory', 'worldwide')}. Scope: {license_params.get('scope', 'single use')}.",
             'next_steps': [
                 f"Contact {username} via {platform}",
@@ -332,7 +340,7 @@ def generate_outreach(owner_info, license_params):
         # Build system message
         system_message = """Generate a professional outreach message for UGC licensing.
 
-You will receive owner information and licensing parameters. Generate:
+You will receive owner information, licensing parameters, and the sender's details. Generate:
 1. A friendly but professional outreach message (150 words max)
 2. A brief license summary explaining terms in plain language
 3. Next steps for the journalist
@@ -346,6 +354,7 @@ Format as JSON:
 
 Tone: Professional, respectful, clear about intent and compensation.
 The message should:
+- Include the sender's name and organization (no placeholders)
 - Address the creator respectfully
 - Clearly state intent to license content
 - Mention the use case
@@ -354,7 +363,8 @@ The message should:
 - Be friendly but professional"""
 
         # Build user message
-        user_message = f"""Owner: {owner_info.get('username', 'content creator')} on {owner_info.get('platform', 'platform')}
+        user_message = f"""Sender: {your_name} from {your_organization}
+Owner: {owner_info.get('username', 'content creator')} on {owner_info.get('platform', 'platform')}
 Use case: {license_params.get('use_case', 'content usage')}
 Scope: {license_params.get('scope', 'single use')}
 Territory: {license_params.get('territory', 'worldwide')}

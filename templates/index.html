@@ -23,6 +23,20 @@
     <main id="main-content" role="main">
         <div class="container">
 
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-button active" data-tab="analyze-tab">
+                    <i class="fas fa-search"></i> Analyze
+                </button>
+                <button class="tab-button" data-tab="workflow-tab">
+                    <i class="fas fa-tasks"></i> Workflow
+                    <span id="workflow-badge" class="tab-badge hidden">0</span>
+                </button>
+            </div>
+
+            <!-- Analyze Tab Content -->
+            <div id="analyze-tab" class="tab-content active">
+
             <!-- Upload Section -->
             <section id="upload-section" class="card">
                 <h2>Analyze Content</h2>
@@ -101,7 +115,7 @@
                 <!-- Signal Cards -->
                 <div class="signals-grid">
                     <!-- EXIF Card -->
-                    <div class="signal-card" id="exif-card">
+                    <div class="signal-card signal-card-clickable" id="exif-card">
                         <div class="signal-header">
                             <i class="fas fa-camera"></i>
                             <h3>EXIF Metadata</h3>
@@ -110,10 +124,13 @@
                         <div class="signal-content" id="exif-content">
                             <p class="loading-text">Loading...</p>
                         </div>
+                        <div class="signal-footer">
+                            <span class="view-details-hint"><i class="fas fa-eye"></i> Click to view details</span>
+                        </div>
                     </div>
 
                     <!-- C2PA Card -->
-                    <div class="signal-card" id="c2pa-card">
+                    <div class="signal-card signal-card-clickable" id="c2pa-card">
                         <div class="signal-header">
                             <i class="fas fa-certificate"></i>
                             <h3>C2PA Credentials</h3>
@@ -122,10 +139,13 @@
                         <div class="signal-content" id="c2pa-content">
                             <p class="loading-text">Loading...</p>
                         </div>
+                        <div class="signal-footer">
+                            <span class="view-details-hint"><i class="fas fa-eye"></i> Click to view details</span>
+                        </div>
                     </div>
 
                     <!-- Reverse Search Card -->
-                    <div class="signal-card" id="reverse-card">
+                    <div class="signal-card signal-card-clickable" id="reverse-card">
                         <div class="signal-header">
                             <i class="fas fa-search"></i>
                             <h3>Reverse Search</h3>
@@ -133,6 +153,9 @@
                         </div>
                         <div class="signal-content" id="reverse-content">
                             <p class="loading-text">Loading...</p>
+                        </div>
+                        <div class="signal-footer">
+                            <span class="view-details-hint"><i class="fas fa-eye"></i> Click to view details</span>
                         </div>
                     </div>
                 </div>
@@ -183,6 +206,92 @@
                 </div>
             </section>
 
+            </div>
+            <!-- End Analyze Tab Content -->
+
+            <!-- Workflow Tab Content -->
+            <div id="workflow-tab" class="tab-content">
+
+            <!-- Workflow Tracker Section -->
+            <section id="workflow-section" class="card">
+                <div class="workflow-header">
+                    <h2><i class="fas fa-tasks"></i> Workflow Tracker</h2>
+                    <button type="button" id="workflow-toggle" class="btn-icon" aria-label="Toggle workflow section">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                </div>
+
+                <!-- Stats Panel -->
+                <div class="workflow-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-analyzed">0</div>
+                        <div class="stat-label">Total Analyzed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-sent">0</div>
+                        <div class="stat-label">Outreach Sent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-approved">0</div>
+                        <div class="stat-label">Licenses Approved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value stat-success" id="stat-rate">0%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                </div>
+
+                <!-- Workflow Columns -->
+                <div class="workflow-columns" id="workflow-columns">
+                    <!-- Sent Column -->
+                    <div class="workflow-column">
+                        <div class="column-header sent-header">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Sent (<span id="sent-count">0</span>)</span>
+                        </div>
+                        <div class="workflow-cards" id="sent-cards" data-status="sent">
+                            <!-- Cards will be inserted here by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- In Negotiation Column -->
+                    <div class="workflow-column">
+                        <div class="column-header negotiating-header">
+                            <i class="fas fa-comments"></i>
+                            <span>In Negotiation (<span id="negotiating-count">0</span>)</span>
+                        </div>
+                        <div class="workflow-cards" id="negotiating-cards" data-status="negotiating">
+                            <!-- Cards will be inserted here by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Approved Column -->
+                    <div class="workflow-column">
+                        <div class="column-header approved-header">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Approved (<span id="approved-count">0</span>)</span>
+                        </div>
+                        <div class="workflow-cards" id="approved-cards" data-status="approved">
+                            <!-- Cards will be inserted here by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Rejected Column -->
+                    <div class="workflow-column">
+                        <div class="column-header rejected-header">
+                            <i class="fas fa-times-circle"></i>
+                            <span>Rejected (<span id="rejected-count">0</span>)</span>
+                        </div>
+                        <div class="workflow-cards" id="rejected-cards" data-status="rejected">
+                            <!-- Cards will be inserted here by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            </div>
+            <!-- End Workflow Tab Content -->
+
         </div>
     </main>
 
@@ -199,6 +308,16 @@
             <div class="modal-body">
                 <!-- License Parameters Form -->
                 <form id="outreach-form">
+                    <div class="form-group">
+                        <label for="your-name">Your Name:</label>
+                        <input type="text" id="your-name" value="Jordan Parker" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="your-organization">Your Organization:</label>
+                        <input type="text" id="your-organization" value="Metro News Desk" required>
+                    </div>
+
                     <div class="form-group">
                         <label for="use-case">Use Case:</label>
                         <select id="use-case" required>
@@ -255,11 +374,19 @@
                     <h4>Next Steps</h4>
                     <ul id="next-steps-list"></ul>
 
-                    <button type="button" id="copy-button" class="btn btn-success btn-block">
-                        <i class="fas fa-copy"></i> Copy to Clipboard
-                    </button>
+                    <div class="outreach-actions">
+                        <button type="button" id="copy-button" class="btn btn-success">
+                            <i class="fas fa-copy"></i> Copy to Clipboard
+                        </button>
+                        <button type="button" id="send-track-button" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Send & Track
+                        </button>
+                    </div>
                     <div id="copy-feedback" class="copy-feedback hidden">
                         <i class="fas fa-check"></i> Copied to clipboard!
+                    </div>
+                    <div id="track-feedback" class="track-feedback hidden">
+                        <i class="fas fa-check"></i> Added to workflow tracker!
                     </div>
                 </div>
 
@@ -272,10 +399,28 @@
         </div>
     </div>
 
+    <!-- Details Modal -->
+    <div id="details-modal" class="modal hidden" role="dialog" aria-labelledby="details-modal-title" aria-modal="true">
+        <div class="modal-overlay" id="details-modal-overlay"></div>
+        <div class="modal-content modal-content-large">
+            <div class="modal-header">
+                <h2 id="details-modal-title"><i class="fas fa-info-circle"></i> <span id="details-title">Details</span></h2>
+                <button type="button" class="modal-close" id="details-modal-close" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="details-content" class="details-content">
+                    <!-- Details will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer role="contentinfo">
         <div class="container">
-            <p>&copy; 2024 SourceTrace - MVP Prototype</p>
+            <p>&copy; 2025 SourceTrace - MVP Prototype</p>
         </div>
     </footer>
 

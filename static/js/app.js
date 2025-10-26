@@ -6,6 +6,7 @@
 // ========== Global State ==========
 let currentFile = null;
 let currentOwnerInfo = null;
+let currentAnalysisData = null;
 
 // ========== DOM Elements ==========
 const elements = {
@@ -58,7 +59,7 @@ const elements = {
     // Upload section (ref)
     uploadSection: null,
 
-    // Modal
+    // Outreach Modal
     outreachModal: null,
     modalOverlay: null,
     modalClose: null,
@@ -69,13 +70,26 @@ const elements = {
     licenseSummary: null,
     nextStepsList: null,
     copyButton: null,
-    copyFeedback: null
+    copyFeedback: null,
+
+    // Details Modal
+    detailsModal: null,
+    detailsModalOverlay: null,
+    detailsModalClose: null,
+    detailsTitle: null,
+    detailsContent: null,
+
+    // Signal cards
+    exifCard: null,
+    c2paCard: null,
+    reverseCard: null
 };
 
 // ========== Initialization ==========
 document.addEventListener('DOMContentLoaded', () => {
     initializeElements();
     setupEventListeners();
+    setupTabs();
     checkHealth();
 });
 
@@ -130,7 +144,7 @@ function initializeElements() {
     elements.errorMessage = document.getElementById('error-message');
     elements.errorRetryButton = document.getElementById('error-retry-button');
 
-    // Modal
+    // Outreach Modal
     elements.outreachModal = document.getElementById('outreach-modal');
     elements.modalOverlay = document.getElementById('modal-overlay');
     elements.modalClose = document.getElementById('modal-close');
@@ -142,6 +156,18 @@ function initializeElements() {
     elements.nextStepsList = document.getElementById('next-steps-list');
     elements.copyButton = document.getElementById('copy-button');
     elements.copyFeedback = document.getElementById('copy-feedback');
+
+    // Details Modal
+    elements.detailsModal = document.getElementById('details-modal');
+    elements.detailsModalOverlay = document.getElementById('details-modal-overlay');
+    elements.detailsModalClose = document.getElementById('details-modal-close');
+    elements.detailsTitle = document.getElementById('details-title');
+    elements.detailsContent = document.getElementById('details-content');
+
+    // Signal cards
+    elements.exifCard = document.getElementById('exif-card');
+    elements.c2paCard = document.getElementById('c2pa-card');
+    elements.reverseCard = document.getElementById('reverse-card');
 }
 
 /**
@@ -149,7 +175,10 @@ function initializeElements() {
  */
 function setupEventListeners() {
     // File upload events
-    elements.fileButton.addEventListener('click', () => elements.fileInput.click());
+    elements.fileButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.fileInput.click();
+    });
     elements.fileInput.addEventListener('change', handleFileSelect);
 
     // Drag and drop events
@@ -174,11 +203,20 @@ function setupEventListeners() {
     elements.errorRetryButton.addEventListener('click', resetUI);
     elements.generateOutreachButton.addEventListener('click', openOutreachModal);
 
-    // Modal events
+    // Outreach Modal events
     elements.modalClose.addEventListener('click', closeOutreachModal);
     elements.modalOverlay.addEventListener('click', closeOutreachModal);
     elements.outreachForm.addEventListener('submit', handleOutreachSubmit);
     elements.copyButton.addEventListener('click', copyToClipboard);
+
+    // Details Modal events
+    elements.detailsModalClose.addEventListener('click', closeDetailsModal);
+    elements.detailsModalOverlay.addEventListener('click', closeDetailsModal);
+
+    // Signal card click events
+    elements.exifCard.addEventListener('click', () => showDetails('exif'));
+    elements.c2paCard.addEventListener('click', () => showDetails('c2pa'));
+    elements.reverseCard.addEventListener('click', () => showDetails('reverse'));
 }
 
 /**
@@ -191,6 +229,60 @@ async function checkHealth() {
         console.log('✅ API Health:', data);
     } catch (error) {
         console.error('❌ Health check failed:', error);
+    }
+}
+
+// ========== Tab Management ==========
+
+/**
+ * Setup tab switching functionality
+ */
+function setupTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.getAttribute('data-tab');
+            switchTab(targetTab);
+        });
+    });
+}
+
+/**
+ * Switch to a specific tab
+ */
+function switchTab(tabId) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-tab') === tabId) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    const targetContent = document.getElementById(tabId);
+    if (targetContent) {
+        targetContent.classList.add('active');
+    }
+}
+
+/**
+ * Update workflow badge count
+ */
+function updateWorkflowBadge() {
+    const badge = document.getElementById('workflow-badge');
+    const count = workflowItems.length;
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
     }
 }
 
@@ -355,6 +447,9 @@ async function analyzeImage() {
 function displayResults(data) {
     const { analysis, signals } = data;
 
+    // Store analysis data for details modal
+    currentAnalysisData = data;
+
     // Hide progress, show results
     elements.progressSection.classList.add('hidden');
     elements.resultsSection.classList.remove('hidden');
@@ -502,18 +597,39 @@ function updateExifCard(exif) {
  */
 function updateC2paCard(c2pa) {
     if (c2pa.present) {
-        elements.c2paStatus.textContent = 'Found';
-        elements.c2paStatus.className = 'signal-status found';
+        // Check if valid or invalid
+        if (c2pa.valid === false) {
+            // C2PA present but couldn't be validated (incompatible format)
+            elements.c2paStatus.textContent = 'Found (Unverified)';
+            elements.c2paStatus.className = 'signal-status warning';
 
-        let content = '<p><strong>Content Credentials Detected</strong></p>';
-        if (c2pa.creator) content += `<p><strong>Creator:</strong> ${c2pa.creator}</p>`;
-        if (c2pa.claim_generator) content += `<p><strong>Claim Generator:</strong> ${c2pa.claim_generator}</p>`;
-        if (c2pa.signature_info) {
-            const validIcon = c2pa.signature_info.is_valid ? '✅' : '❌';
-            content += `<p><strong>Signature:</strong> ${validIcon} ${c2pa.signature_info.is_valid ? 'Valid' : 'Invalid'}</p>`;
+            let content = '<p><strong>⚠️ Content Credentials Detected</strong></p>';
+            content += `<p style="font-size: 0.85rem; margin-top: 8px;">${c2pa.error || 'C2PA data present but validation failed'}</p>`;
+
+            elements.c2paContent.innerHTML = content;
+        } else {
+            // C2PA present and validated
+            elements.c2paStatus.textContent = 'Found';
+            elements.c2paStatus.className = 'signal-status found';
+
+            let content = '<p><strong>Content Credentials Detected</strong></p>';
+
+            // Show validation status
+            if (c2pa.valid !== undefined) {
+                const validIcon = c2pa.valid ? '✅' : '❌';
+                content += `<p><strong>Valid:</strong> ${validIcon} ${c2pa.valid ? 'Yes' : 'No'}</p>`;
+            }
+
+            // Show issuer from signature info
+            if (c2pa.signature_info && c2pa.signature_info.issuer) {
+                content += `<p><strong>Issuer:</strong> ${c2pa.signature_info.issuer}</p>`;
+            }
+
+            if (c2pa.creator) content += `<p><strong>Creator:</strong> ${c2pa.creator}</p>`;
+            if (c2pa.claim_generator) content += `<p><strong>Claim Generator:</strong> ${c2pa.claim_generator}</p>`;
+
+            elements.c2paContent.innerHTML = content;
         }
-
-        elements.c2paContent.innerHTML = content;
     } else {
         elements.c2paStatus.textContent = 'Not Found';
         elements.c2paStatus.className = 'signal-status not-found';
@@ -620,10 +736,18 @@ function resetUI() {
  */
 function openOutreachModal() {
     elements.outreachModal.classList.remove('hidden');
-    elements.outreachForm.reset();
+
+    // Show form, hide results and loading
+    elements.outreachForm.classList.remove('hidden');
     elements.outreachResult.classList.add('hidden');
     elements.outreachLoading.classList.add('hidden');
-    document.body.style.overflow = 'hidden'; // Prevent background scroll
+    elements.copyFeedback.classList.add('hidden');
+
+    // Reset form fields
+    elements.outreachForm.reset();
+
+    // Prevent background scroll
+    document.body.style.overflow = 'hidden';
 }
 
 /**
@@ -642,6 +766,8 @@ async function handleOutreachSubmit(event) {
     event.preventDefault();
 
     // Get form values
+    const yourName = document.getElementById('your-name').value;
+    const yourOrganization = document.getElementById('your-organization').value;
     const useCase = document.getElementById('use-case').value;
     const scope = document.getElementById('scope').value;
     const territory = document.getElementById('territory').value;
@@ -668,7 +794,9 @@ async function handleOutreachSubmit(event) {
                     scope: scope,
                     territory: territory,
                     compensation: compensation
-                }
+                },
+                your_name: yourName,
+                your_organization: yourOrganization
             })
         });
 
@@ -743,4 +871,572 @@ function formatDate(timestamp) {
     }
 }
 
-console.log('✅ SourceTrace frontend initialized');
+// ========== Details Modal ==========
+
+/**
+ * Show details modal for a specific signal type
+ */
+function showDetails(signalType) {
+    if (!currentAnalysisData || !currentAnalysisData.signals) {
+        console.error('No analysis data available');
+        return;
+    }
+
+    const signals = currentAnalysisData.signals;
+    let title = '';
+    let content = '';
+
+    // Debug logging
+    console.log('Signal Type:', signalType);
+    console.log('Signal Data:', signalType === 'exif' ? signals.exif : signalType === 'c2pa' ? signals.c2pa : signals.reverse_search);
+
+    switch (signalType) {
+        case 'exif':
+            title = 'EXIF Metadata Details';
+            content = formatExifDetails(signals.exif);
+            break;
+        case 'c2pa':
+            title = 'C2PA Credentials Details';
+            content = formatC2paDetails(signals.c2pa);
+            break;
+        case 'reverse':
+            title = 'Reverse Search Details';
+            content = formatReverseDetails(signals.reverse_search);
+            break;
+    }
+
+    elements.detailsTitle.textContent = title;
+    elements.detailsContent.innerHTML = content;
+    elements.detailsModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close details modal
+ */
+function closeDetailsModal() {
+    elements.detailsModal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+/**
+ * Format EXIF data for display
+ */
+function formatExifDetails(exifData) {
+    if (!exifData || !exifData.has_exif) {
+        const message = exifData?.error || 'No EXIF metadata found in this image.';
+        return `<div class="details-empty">${message}</div>`;
+    }
+
+    // Check if we have any actual metadata beyond has_exif
+    const dataKeys = Object.keys(exifData).filter(k => k !== 'has_exif');
+
+    if (dataKeys.length === 0) {
+        return `<div class="details-empty">
+            <p><strong>EXIF metadata header is present</strong>, but all camera and technical details have been stripped.</p>
+            <p>This is common for:</p>
+            <ul style="text-align: left; padding-left: 20px; margin-top: 10px;">
+                <li>Images that have been resized or processed</li>
+                <li>Screenshots and screen captures</li>
+                <li>Images from social media (metadata often stripped)</li>
+                <li>Web-optimized images</li>
+            </ul>
+            <p style="margin-top: 15px;"><em>If you need detailed metadata for verification, use the original file from the camera or device.</em></p>
+        </div>`;
+    }
+
+    let html = '<h4>Camera Information</h4>';
+    html += '<table class="details-table">';
+
+    // Map our EXIF fields to display labels
+    const fieldMapping = {
+        'camera_make': 'Camera Make',
+        'camera_model': 'Camera Model',
+        'timestamp': 'Date Taken',
+        'software': 'Software',
+        'gps_latitude': 'GPS Latitude',
+        'gps_longitude': 'GPS Longitude',
+        'gps_latitude_ref': 'Latitude Ref',
+        'gps_longitude_ref': 'Longitude Ref',
+        'orientation': 'Orientation',
+        'flash': 'Flash',
+        'focal_length': 'Focal Length (mm)',
+        'iso': 'ISO Speed',
+        'f_number': 'F-Number',
+        'exposure_time': 'Exposure Time'
+    };
+
+    let hasData = false;
+    for (const [key, label] of Object.entries(fieldMapping)) {
+        if (exifData[key] !== undefined && exifData[key] !== null) {
+            let value = exifData[key];
+
+            // Format specific types
+            if (key === 'timestamp') {
+                try {
+                    value = new Date(value).toLocaleString();
+                } catch (e) {
+                    value = exifData[key];
+                }
+            } else if (key === 'flash') {
+                value = value ? 'Yes' : 'No';
+            } else if (typeof value === 'number') {
+                value = value.toFixed(2);
+            } else if (typeof value === 'object') {
+                value = JSON.stringify(value);
+            }
+
+            html += `<tr><td>${label}</td><td>${value}</td></tr>`;
+            hasData = true;
+        }
+    }
+
+    html += '</table>';
+
+    if (!hasData) {
+        return '<div class="details-empty">EXIF metadata found but no standard camera/technical fields available.</div>';
+    }
+
+    // Show raw data
+    html += '<h4>Raw EXIF Data</h4>';
+    html += `<pre class="details-json">${JSON.stringify(exifData, null, 2)}</pre>`;
+
+    return html;
+}
+
+/**
+ * Format C2PA data for display
+ */
+function formatC2paDetails(c2paData) {
+    if (!c2paData || !c2paData.present) {
+        const message = c2paData?.message || 'No C2PA credentials found in this image.';
+        return `<div class="details-empty">${message}</div>`;
+    }
+
+    // Handle case where C2PA is present but couldn't be validated
+    if (c2paData.valid === false) {
+        return `<div class="details-empty">
+            <p><strong>⚠️ C2PA Content Credentials Detected</strong></p>
+            <p style="margin-top: 15px;">${c2paData.error || 'C2PA data found but validation failed'}</p>
+            <p style="margin-top: 15px; font-size: 0.9rem;">${c2paData.note || ''}</p>
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #fbbf24; border-radius: 4px;">
+                <p><strong>What this means:</strong></p>
+                <ul style="text-align: left; padding-left: 20px; margin-top: 10px;">
+                    <li>This image <strong>does contain</strong> C2PA Content Credentials</li>
+                    <li>The Python library used in this prototype has limited C2PA support</li>
+                    <li>Adobe's Content Credentials Verify tool can read this format</li>
+                    <li>A production implementation would use the full C2PA SDK</li>
+                </ul>
+            </div>
+            ${c2paData.technical_error ? `<p style="margin-top: 15px; font-size: 0.85rem; color: #6b7280;"><strong>Technical error:</strong> ${c2paData.technical_error}</p>` : ''}
+        </div>`;
+    }
+
+    let html = '<h4>C2PA Credential Information</h4>';
+    html += '<table class="details-table">';
+
+    if (c2paData.creator) {
+        html += `<tr><td>Creator</td><td>${c2paData.creator}</td></tr>`;
+    }
+
+    if (c2paData.claim_generator) {
+        html += `<tr><td>Claim Generator</td><td>${c2paData.claim_generator}</td></tr>`;
+    }
+
+    // Show validation status
+    if (c2paData.valid !== undefined) {
+        const isValid = c2paData.valid;
+        const validIcon = isValid ? '✅' : '❌';
+        html += `<tr><td>Credentials Valid</td><td>${validIcon} ${isValid ? 'Yes' : 'No'}</td></tr>`;
+    }
+
+    // Show signature info
+    if (c2paData.signature_info) {
+        html += `<tr><td>Issuer</td><td>${c2paData.signature_info.issuer || 'Unknown'}</td></tr>`;
+        if (c2paData.signature_info.time) {
+            const timestamp = new Date(c2paData.signature_info.time).toLocaleString();
+            html += `<tr><td>Signed</td><td>${timestamp}</td></tr>`;
+        }
+    }
+
+    html += '</table>';
+
+    // Show raw data
+    html += '<h4>Raw C2PA Data</h4>';
+    html += `<pre class="details-json">${JSON.stringify(c2paData, null, 2)}</pre>`;
+
+    return html;
+}
+
+/**
+ * Format reverse search data for display
+ */
+function formatReverseDetails(reverseData) {
+    if (!reverseData || !reverseData.found) {
+        const message = reverseData?.message || 'No matches found in reverse image search.';
+
+        let html = `<div class="details-empty">
+            <p><strong>${message}</strong></p>`;
+
+        // If there's a search URL, provide a manual search option
+        if (reverseData?.search_url) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                    <p><strong>🔍 Manual Search Available</strong></p>
+                    <p style="margin-top: 10px; font-size: 0.9rem;">
+                        The automated scraper couldn't parse Google's results (this is common due to anti-bot protections).
+                    </p>
+                    <p style="margin-top: 10px;">
+                        <a href="${reverseData.search_url}" target="_blank" rel="noopener noreferrer"
+                           style="display: inline-block; padding: 8px 16px; background: #3b82f6; color: white;
+                                  text-decoration: none; border-radius: 4px; font-weight: 600;">
+                            🔗 Open Google Reverse Image Search
+                        </a>
+                    </p>
+                    <p style="margin-top: 15px; font-size: 0.85rem; color: #6b7280;">
+                        <strong>Note:</strong> A production version would use Google Vision API or TinEye API for reliable automated results.
+                    </p>
+                </div>`;
+        }
+
+        // Show note if available
+        if (reverseData?.note) {
+            html += `<p style="margin-top: 15px; font-size: 0.9rem; color: #6b7280;"><em>${reverseData.note}</em></p>`;
+        }
+
+        // Show error if available
+        if (reverseData?.error) {
+            html += `<p style="margin-top: 15px; font-size: 0.9rem; color: #dc2626;"><strong>Error:</strong> ${reverseData.error}</p>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    let html = '<h4>Search Results</h4>';
+    html += `<p><strong>Total Matches Found:</strong> ${reverseData.match_count || 0}</p>`;
+
+    if (reverseData.matches && reverseData.matches.length > 0) {
+        html += '<ul class="details-list">';
+
+        reverseData.matches.forEach(match => {
+            html += '<li>';
+            if (match.title) {
+                html += `<strong>${match.title}</strong><br>`;
+            }
+            if (match.url) {
+                html += `<a href="${match.url}" target="_blank" rel="noopener noreferrer">${match.url}</a><br>`;
+            }
+            if (match.domain) {
+                html += `<em>Domain: ${match.domain}</em>`;
+            }
+            html += '</li>';
+        });
+
+        html += '</ul>';
+    }
+
+    // Show raw data
+    html += '<h4>Raw Search Data</h4>';
+    html += `<pre class="details-json">${JSON.stringify(reverseData, null, 2)}</pre>`;
+
+    return html;
+}
+
+// ========== Workflow Tracker ==========
+
+// Global state for workflow tracking
+let workflowItems = [];
+let currentImageDataURL = null;
+let analysisCount = 0;
+
+/**
+ * Initialize workflow tracker from localStorage
+ */
+function initializeWorkflowTracker() {
+    // Load from localStorage
+    const saved = localStorage.getItem('sourcetrace_workflow');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            workflowItems = data.items || [];
+            analysisCount = data.analysisCount || 0;
+        } catch (e) {
+            console.error('Failed to load workflow data:', e);
+        }
+    }
+
+    // Setup event listeners
+    const sendTrackButton = document.getElementById('send-track-button');
+    const workflowToggle = document.getElementById('workflow-toggle');
+
+    if (sendTrackButton) {
+        sendTrackButton.addEventListener('click', handleSendAndTrack);
+    }
+
+    if (workflowToggle) {
+        workflowToggle.addEventListener('click', toggleWorkflowSection);
+    }
+
+    // Render workflow if we have items (this will also update the badge)
+    if (workflowItems.length > 0) {
+        renderWorkflow();
+    }
+}
+
+/**
+ * Save current image as data URL for workflow tracking
+ */
+function saveImageForTracking() {
+    if (currentFile) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            currentImageDataURL = e.target.result;
+        };
+        reader.readAsDataURL(currentFile);
+    }
+}
+
+/**
+ * Track that an analysis was performed
+ */
+function trackAnalysis() {
+    analysisCount++;
+    saveWorkflowData();
+    saveImageForTracking();
+}
+
+/**
+ * Handle "Send & Track" button click
+ */
+function handleSendAndTrack() {
+    if (!currentOwnerInfo || !currentOwnerInfo.username) {
+        alert('Owner information not available');
+        return;
+    }
+
+    // Get outreach message
+    const message = elements.outreachMessage.textContent;
+    if (!message) {
+        alert('No outreach message generated');
+        return;
+    }
+
+    // Create workflow item
+    const item = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        owner: currentOwnerInfo.username,
+        platform: currentOwnerInfo.platform,
+        contact: currentOwnerInfo.contact_method || 'Unknown',
+        status: 'sent',
+        message: message,
+        imageData: currentImageDataURL || null
+    };
+
+    // Add to workflow
+    workflowItems.push(item);
+    saveWorkflowData();
+
+    // Copy message to clipboard
+    navigator.clipboard.writeText(message).catch(e => {
+        console.error('Failed to copy:', e);
+    });
+
+    // Show success feedback
+    const trackFeedback = document.getElementById('track-feedback');
+    trackFeedback.innerHTML = '<i class="fas fa-check-circle"></i> Message sent and added to workflow!';
+    trackFeedback.classList.remove('hidden');
+
+    // Close modal after 1.5 seconds and switch to workflow tab
+    setTimeout(() => {
+        closeOutreachModal();
+        switchTab('workflow-tab');
+        renderWorkflow();
+        updateWorkflowBadge();
+        trackFeedback.classList.add('hidden');
+    }, 1500);
+
+    console.log('✅ Workflow item added:', item);
+}
+
+
+/**
+ * Toggle workflow section visibility
+ */
+function toggleWorkflowSection() {
+    const columns = document.getElementById('workflow-columns');
+    const toggle = document.getElementById('workflow-toggle');
+    const icon = toggle.querySelector('i');
+
+    if (columns.style.display === 'none') {
+        columns.style.display = 'grid';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        columns.style.display = 'none';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
+}
+
+/**
+ * Render entire workflow
+ */
+function renderWorkflow() {
+    // Update stats
+    updateStats();
+
+    // Clear all columns
+    document.getElementById('sent-cards').innerHTML = '';
+    document.getElementById('negotiating-cards').innerHTML = '';
+    document.getElementById('approved-cards').innerHTML = '';
+    document.getElementById('rejected-cards').innerHTML = '';
+
+    // Render items by status
+    workflowItems.forEach(item => {
+        const container = document.getElementById(`${item.status}-cards`);
+        if (container) {
+            container.appendChild(createWorkflowCard(item));
+        }
+    });
+
+    // Update counts
+    updateColumnCounts();
+
+    // Update badge
+    updateWorkflowBadge();
+}
+
+/**
+ * Create workflow card element
+ */
+function createWorkflowCard(item) {
+    const card = document.createElement('div');
+    card.className = 'workflow-card new';
+    card.dataset.id = item.id;
+
+    // Remove 'new' class after animation
+    setTimeout(() => card.classList.remove('new'), 300);
+
+    const thumbnail = item.imageData
+        ? `<img src="${item.imageData}" class="workflow-card-thumbnail" alt="Content thumbnail">`
+        : `<div class="workflow-card-thumbnail" style="background: var(--border-gray); display: flex; align-items: center; justify-content: center;"><i class="fas fa-image"></i></div>`;
+
+    const date = new Date(item.timestamp);
+    const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    card.innerHTML = `
+        <div class="workflow-card-header">
+            ${thumbnail}
+            <div class="workflow-card-info">
+                <div class="workflow-card-owner">${item.owner}</div>
+                <div class="workflow-card-platform">${item.platform}</div>
+                <div class="workflow-card-contact"><i class="fas fa-envelope"></i> ${item.contact || 'Unknown'}</div>
+            </div>
+        </div>
+        <div class="workflow-card-date">${formattedDate}</div>
+        <div class="workflow-card-actions">
+            ${item.status === 'sent' ? '<button class="btn btn-secondary" onclick="updateWorkflowStatus(\'' + item.id + '\', \'negotiating\')"><i class="fas fa-comments"></i> Negotiating</button>' : ''}
+            ${item.status === 'negotiating' ? '<button class="btn btn-success" onclick="updateWorkflowStatus(\'' + item.id + '\', \'approved\')"><i class="fas fa-check"></i> Approved</button>' : ''}
+            ${item.status === 'negotiating' ? '<button class="btn" style="background: var(--danger); color: white;" onclick="updateWorkflowStatus(\'' + item.id + '\', \'rejected\')"><i class="fas fa-times"></i> Rejected</button>' : ''}
+        </div>
+        <button class="workflow-card-delete" onclick="deleteWorkflowItem('${item.id}')">
+            <i class="fas fa-trash"></i> Delete
+        </button>
+    `;
+
+    return card;
+}
+
+/**
+ * Update workflow item status
+ */
+function updateWorkflowStatus(itemId, newStatus) {
+    const item = workflowItems.find(i => i.id === itemId);
+    if (item) {
+        item.status = newStatus;
+        saveWorkflowData();
+        renderWorkflow();
+    }
+}
+
+/**
+ * Delete workflow item
+ */
+function deleteWorkflowItem(itemId) {
+    if (confirm('Remove this item from workflow tracker?')) {
+        workflowItems = workflowItems.filter(i => i.id !== itemId);
+        saveWorkflowData();
+        renderWorkflow();
+
+        // Hide section if no items left
+        if (workflowItems.length === 0) {
+            document.getElementById('workflow-section').classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Update statistics
+ */
+function updateStats() {
+    document.getElementById('stat-analyzed').textContent = analysisCount;
+    document.getElementById('stat-sent').textContent = workflowItems.length;
+
+    const approved = workflowItems.filter(i => i.status === 'approved').length;
+    document.getElementById('stat-approved').textContent = approved;
+
+    const sent = workflowItems.length;
+    const rate = sent > 0 ? Math.round((approved / sent) * 100) : 0;
+    document.getElementById('stat-rate').textContent = rate + '%';
+}
+
+/**
+ * Update column counts
+ */
+function updateColumnCounts() {
+    const counts = {
+        sent: workflowItems.filter(i => i.status === 'sent').length,
+        negotiating: workflowItems.filter(i => i.status === 'negotiating').length,
+        approved: workflowItems.filter(i => i.status === 'approved').length,
+        rejected: workflowItems.filter(i => i.status === 'rejected').length
+    };
+
+    document.getElementById('sent-count').textContent = counts.sent;
+    document.getElementById('negotiating-count').textContent = counts.negotiating;
+    document.getElementById('approved-count').textContent = counts.approved;
+    document.getElementById('rejected-count').textContent = counts.rejected;
+}
+
+/**
+ * Save workflow data to localStorage
+ */
+function saveWorkflowData() {
+    try {
+        localStorage.setItem('sourcetrace_workflow', JSON.stringify({
+            items: workflowItems,
+            analysisCount: analysisCount
+        }));
+    } catch (e) {
+        console.error('Failed to save workflow data:', e);
+    }
+}
+
+// Make functions globally accessible
+window.updateWorkflowStatus = updateWorkflowStatus;
+window.deleteWorkflowItem = deleteWorkflowItem;
+
+// Initialize workflow tracker on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initializeWorkflowTracker();
+});
+
+// Track analysis when results are displayed
+const originalDisplayResults = displayResults;
+displayResults = function(data) {
+    originalDisplayResults(data);
+    trackAnalysis();
+};
+
+console.log('✅ SourceTrace frontend initialized with workflow tracking');

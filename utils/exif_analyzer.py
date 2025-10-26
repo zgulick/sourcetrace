@@ -113,6 +113,10 @@ def extract_exif(image_path_or_bytes):
                 'has_exif': False
             }
 
+        # Debug: log what tags we found
+        import logging
+        logging.info(f"EXIF tags found: {list(tags.keys())}")
+
         # Extract and structure EXIF data
         result = {'has_exif': True}
 
